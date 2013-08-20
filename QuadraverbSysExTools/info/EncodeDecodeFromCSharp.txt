@@ -1,0 +1,113 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Diagnostics;
+
+namespace MidiSysexTest
+{
+    class QVPlusMidiTools
+    {
+        public const byte SysExHeaderBytes = 7;
+        public const byte SysExFooterBytes = 1;
+        public const byte SysExCommandCodeByte = 5;
+        public const byte SysExPatchNumberByte = 6;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sysEx"></param>
+        public static byte[] RemoveSysExHeaderAndFooter(byte[] sysEx)
+        {
+            //preconditions
+            Debug.Assert(sysEx.Length > SysExHeaderBytes + SysExFooterBytes);
+
+            byte[] data = new byte[sysEx.Length - (SysExHeaderBytes + SysExFooterBytes)];
+            for (int i = SysExHeaderBytes; i < sysEx.Length - SysExFooterBytes; i++)
+            {
+                data[i - SysExHeaderBytes] = sysEx[i];
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sysEx"></param>
+        /// <returns></returns>
+        public static byte GetPatchNumberFromSysEx(byte[] sysEx)
+        {
+            //preconditions
+            Debug.Assert(sysEx.Length > SysExHeaderBytes + SysExFooterBytes);
+
+            return sysEx[SysExPatchNumberByte];
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sysEx"></param>
+        /// <returns></returns>
+        public static byte GetCommandCodeFromSysEx(byte[] sysEx)
+        {
+            //preconditions
+            Debug.Assert(sysEx.Length > SysExHeaderBytes + SysExFooterBytes);
+
+            return sysEx[SysExCommandCodeByte];
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public static byte[] EncodePatchData(byte[] data)
+        {
+            byte[] encodedData = new byte[147];
+            byte currentShift = 1;
+            int currentEncodedByte = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                encodedData[currentEncodedByte++] += (byte)(data[i] >> currentShift);
+                encodedData[currentEncodedByte] = (byte)((byte)(data[i] % Math.Pow(2, currentShift)) << (7 - currentShift));
+
+                if (currentShift < 7)
+                    currentShift++;
+                else
+                {
+                    currentShift = 1;
+                    currentEncodedByte++;
+                }
+            }
+            return encodedData;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="encodedData"></param>
+        /// <returns></returns>
+        public static byte[] DecodePatchData(byte[] encodedData)
+        {
+            byte[] decodedData = new byte[128];
+            byte currentShift = 1;
+            int currentDecodedByte = 0;
+
+            for (int i = 0; i < encodedData.Length - 1; i++)
+            {
+                decodedData[currentDecodedByte++] = (byte)(((byte)(encodedData[i] % Math.Pow(2, 8 - currentShift)) << currentShift) + (encodedData[i + 1] >> (7 - currentShift)));
+
+                if (currentShift < 7)
+                    currentShift++;
+                else
+                {
+                    currentShift = 1;
+                    i++;
+                }
+            }
+
+            return decodedData;
+        }
+    }
+}
